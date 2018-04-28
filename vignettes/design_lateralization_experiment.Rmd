@@ -1,0 +1,151 @@
+---
+title: "Design lateralization experiment (data108)"
+author: "Mats E. Nilsson"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+The package ALEXIS 108 contains data from two experiments:  
+
+1. Main experiment on lateralization of lag-clicks
+2. Extra experiment on detection of lag-clicks  
+
+This vignette describes the method used in the main experimnet. A separate vignette describes the method of the extra experiment (insert link here). The background and aim of the experiments is described here (insert link here).
+
+## Method main experiment
+The experiment measure ability to discriminate an inter-arial level difference of 10 dB in the lagging part of click pairs, composed 
+of a leading click shortly followed by a lagging click (typically perceptually fused 
+
+### Stimuli
+The stimuli were composed of a lead click followed by a lag click. The clicks were 125 $\mu s$ rectangular pulses. The main parameter manipulated in the experiment was the time-separation between lead click and lag click, called the inter-click-interval (ICI). The following eleven ICI-values were tested: 0.25, 0.5, 1, 2, 3, 4, 5, 7, 10, 15, 18 mz. In addition, two single-click conditions were included as reference conditions, as described below.  
+
+The stimuli conditions were tested in separate sessions. In each session, lateralization responses ("left" or "right") were obtained using a two-interval center-side task (e.g., ref xxx). The diotic standard stimuli (center) was presented in the first interval. It was composed of a lead click and a lag click, both with ILD = 0 dB, separated by an ICI defined by the stimulus condition tested in the session. The dichotic variable stimuli (side) was presented in the second interval. It was was composed of a lead click with 0 dB ILD and a lag click with 10 dB ILD randomly favoring either the left or the right side. The variable parameter in each session was the lag-lead ratio (LLR), defined as the dB-difference in peak level between lead and lag click (for the dichotic variable referring to the level in the ear favored by the ILD). The lag-lead ratio was + 10 dB in the first trial of each session; this ratio was then reduced according to the adaptive staircase rule to zoom in on values close to the participants threshold for correctly deciding the side, left or right, of the second interval's 10-dB ILD.  
+
+The Figure below schematically illustrates stimuli in three trials, with the same ICI and different LLRs: +5, -5, and -15 dB. The second interval always contained the dichotic stimulus with an ILD of 10 dB; in the illustrations the ILD is pointing toward the left side. 
+
+<br>
+
+
+```{r echo = FALSE, fig.width = 7, fig.height = 4}
+
+mono <- function(ici, laglead, ild = 0) {
+  # Left channel, 0 ILD. So correct answer would be "Right"
+  
+  xlim = c(0, 100)
+  ylim = c(-30, 10)
+  x1 = 10 #Start 1st interval (somewhere inside xlim)
+  x2 = 70  #Start 2nd interval (somewhere inside xlim)
+  
+  par(lwd = 1)
+  plot(1, pch = "", xlim = xlim, ylim = ylim, ann = FALSE, axes = FALSE)
+  
+  # 1st interval
+  lines(c(x1 + ici, x1 + ici), c(min(ylim), laglead), lty = 1)
+  lines(c(x1, x1), c(min(ylim), 0), lty = 2, col = 'red')
+  
+  # 2nd interval
+  lines(c(x2 + ici, x2 + ici), c(min(ylim), laglead + ild), lty = 1)
+  lines(c(x2, x2), c(min(ylim), 0), lty = 2, col = 'red')
+  
+  # Time line
+  lines(c(0, 100), c(-30, -30), lty = 1, col = 'black')
+}
+
+
+
+# Subplot positions ------------------------------------------------------------
+# (Leaves room = 10 % below and to the left for axis labels etc.)
+
+pp <- matrix( c(10, 35, 10,  50,  # Lower left
+                10, 35, 60, 100,  # Upper left
+                40, 65, 10,  50,  # Lower middle
+                40, 65, 60, 100,  # Upper middle
+                70, 95, 10,  50,  # Lower right 
+                70, 95, 60, 100), # Upper right
+                nrow = 6, ncol = 4, byrow = TRUE)
+pp <- pp/100
+# ------------------------------------------------------------------------------
+
+
+# Draw subplots using mono() ---------------------------------------------------
+
+# No margins
+par(mar = c(0,0,0,0))
+
+# Leftmost panels
+# Lower left
+par(fig = pp[1, ])
+mono(5, 5, -10)
+# Upper left
+par(fig = pp[2, ], new = TRUE)
+mono(5, 5, 0)
+
+# Middle panels
+# Lower middle
+par(fig = pp[3, ], new = TRUE)
+mono(5, -5, -10)
+# Upper middle
+par(fig = pp[4, ], new = TRUE)
+mono(5, -5, 0)
+
+# Rightmost panels
+# Lower Right
+par(fig = pp[5, ], new = TRUE)
+mono(5, -15, -10)
+# Upper right
+par(fig = pp[6, ], new = TRUE)
+mono(5, -15, 0)
+# ------------------------------------------------------------------------------
+
+# Create empty plotting area ---------------------------------------------------
+par(fig = c(0, 1, 0, 1), new = TRUE)
+plot(0, 0, xlim = c(0, 100), ylim = c(0, 100), pch = '', axes = FALSE)
+
+# Help lines, comment out for final version
+#axis(1, pos = 100, at = 1:100, cex.axis = 0.5, tck = -1, col = 'lightblue')  
+#axis(2, pos = 0, at = 1:100, cex.axis = 0.5, tck = 1, col = 'lightblue', las = 2)  
+# ------------------------------------------------------------------------------
+
+
+# Add lines separating subplots -------------------------------------------------
+lines(c(36, 36), c(0, 100), col = 'grey')
+lines(c(69, 69), c(0, 100), col = 'grey')
+
+# ------------------------------------------------------------------------------
+
+
+# Add text ---------------------------------------------------------------------
+text(0, 99, 'Left channel', cex = 0.5, pos = 4)
+text(0, 49, 'Right channel', cex = 0.5, pos = 4)
+
+text(15, 5, 'Time', cex = 0.7, pos = 4)
+text(48, 5, 'Time', cex = 0.7, pos = 4)
+text(80, 5, 'Time', cex = 0.7, pos = 4)
+
+text(5, 25, 'Amplitude', cex = 0.7, pos = 4, srt = 90)  # srt = 90 = vertical
+text(5, 77, 'Amplitude', cex = 0.7, pos = 4, srt = 90)  # srt = 90 = vertical
+
+text(14, 99, 'LLR = +5 dB', cex = 0.7, pos = 4)
+text(46, 99, 'LLR = -5 dB', cex = 0.7, pos = 4)
+text(78, 99, 'LLR = -15 dB', cex = 0.7, pos = 4)
+# ------------------------------------------------------------------------------
+```
+
+*Figure: Schematic illustration of three stimuli, with the same ICI = distance between lead-clcik (red dotted line) and lag-click (black line), and different lag-lead-ratios (LLR) of +5 (leftmost), -5 (middle), and -15 dB (rightmost panel). The secodn interval contained a lag-click ILD of 10 dB, in teh iluustration pointing towards the left side. Thus, the correct answer wouldf be 'Left' for all three illustrated trials.*
+
+
+### Staircase procedure
+
+
+### Threhold estimates

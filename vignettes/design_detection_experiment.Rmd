@@ -1,0 +1,23 @@
+---
+title: "ALEXIS 108: Method extra experiment"
+author: "Mats E. Nilsson"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The package ALEXIS 108 contains data from two experiments:  
+
+1. Main experiment on lateralization of lag-clicks
+2. Extra experiment on detection of lag-clicks  
+
+This vignette describes the method used in the extra experimnet. A separate vignette describes the method of the main experiment (insert link here). The background and aim of the experiments is described here (insert link here).
+
+<br>
+
+## Method: Extra experiment on lag-click detection
+The standard stimulus in the extra experiment was a single diotic click. The variable stimuli were the same as in lateralization experiment, i.e., a diotic lead click followed by a dichotic lag click with a constant ILD of 10 dB randomly favoring the left or the right side, and with the lag-to-lead ration (LLR dB) as a variable changing from trial to trial depending on the listeners performance. Each trial contained three intervals. The first (reminder) was always the standard click. The variable was randomly presented in either the second or the third interval, with the standard presented in the remaining interval. The listener's task was to decide what interval, second or third, that contained the lag-click. This two-alternative forced choice (2AFC) with reminder method was used because the perceived character of the variable sound is hard to describe and differs depending on lead-lag ratio. A conventional 2AFC without reminder may therefore be hard to conduct and may lead to systematic errors if the listener clearly hears a difference between standard and variable, but incorrectly identifies the standard click as the target. The LLR started at 10 dB and changed from trial to trial according to the rule of the adaptive staircase(same rule as in the main experiment on laterlization). The experiment contained the same stimulus conditions as the main experiment, except for the lag-click only condition that would not make sense here since the standard stimulus contained no lag-click. The experiment was conducted on 20 days, each day containing eleven sessions, one for each experimental condition. 
+

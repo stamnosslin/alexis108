@@ -1,0 +1,19 @@
+Package: alexis108
+Type: Package
+Title: Data from Experiment on Discrimination Suppression
+Version: 0.1.0
+Author: Mats E. Nilsson, mats.nilsson@spsychology.su.se
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: This package contains data from an experiment called ALEXIS 108. ALEXIS 
+  stands for Auditory Learning and EXpertISe, and 108 is the number of a specific experiment,
+  the data of which is contained in this package. The experiment measured thresholds laterlaization
+  of inter-aural-level differences in lagging part of lead-lag click pairs, for
+  various time-separations between the leading and lagging click. Details of the 
+  experimental design is given in separate vignettes.
+License: stands
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

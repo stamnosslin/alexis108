@@ -1,0 +1,362 @@
+---
+title: "Analysis for manuscript submitted to JASA-EL"
+author: "Mats E. Nilsson"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This vignette describes analyses of the ALEXIS 108 data as presented in a manuscript first submitted to JASA-Express Letters 2018-02-23, and then resubmitted 2018-04-28. The analysis below refer to the revised manuscript. 
+
+## R Libraries
+Two R-libraries are used:
+
++ **alexis108** contains the data. It can be installed from github using the R library **devtools**, or you could just download the datafile `oskar_ild_mntraining.txt` from github: github.com/stamnosslin/alexis108/tree/master/data  
+
++ **rstan** is used for fitting psychometric functions to data using Hamiltonian Monte Carlo estimation.
+
++ **rethinking** is used for summarizing the posterior, using chainmode() for teh mode and HPDI() for 95 % credibility interval.
+
+```{r message = FALSE}
+# devtools::install_github("stamnosslin/alexis108")  # Installs alexis108 
+library(alexis108)
+library(rstan)
+library(rethinking)
+```
+<br>
+<br>
+
+## Get data
+
+```{r}
+# Lateralization experiment, stored in data fram d
+d <- data108
+d$pc <- 1 * (d$correct == d$answer)  # pc = 1 if answer was correct, 0 if not
+```
+
+<br>
+<br>
+
+## Period during which training was conducted
+Training was conducted in 60 separate days distributed over a period of this many days:
+```{r}
+first <- as.Date(d$date[1],'%Y-%m-%d')
+last <- as.Date(d$date[nrow(d)],'%Y-%m-%d')
+difftime(last, first, units = "days")
+```
+<br>
+<br>
+
+## Number of trials per 10 day period
+
+```{r}
+ndays <- function(ici) {
+   dfun <- function(startday) {
+     tau <- ici
+     days <- seq(startday, startday + 9)
+     length(d$pc[d$tau == tau & d$day %in% days])
+   }
+   
+   sapply(1:51, dfun)
+}
+
+taus <- sort(unique(d$tau))  # Stimulus conditions (tau = ici)
+ntrials <- sapply(taus, ndays)
+summary(apply(ntrials, 2, mean))
+
+```
+
+<br>
+<br>
+
+## Function to convert LLR to ILD for the ICI = 0 condition
+```{r}
+llr_to_ild <- function(llr) {
+  lmax <- 20 * log10 (10^(0/20) + 10^(llr/20))
+  lmin <- 20 * log10 (10^(0/20) + 10^((llr-10)/20))
+  lmax-lmin
+}
+
+# Example given in the Method section
+llrs <- c(10, 0, -10, -20)  
+round(sapply(llrs, llr_to_ild),1)
+
+# LLR at threshold for ICI = 0 ms was -15 dB for days 1-10, and -17 dB LLR for days 51-60. This calculates the corresponding ILDs
+round(sapply(c(-15.057090, -16.840977), llr_to_ild), 1) 
+```
+
+<br>
+<br>
+
+## Data for Figure 2, threshold trend plot for each stimulus condition
+Thresholds were caluclted using Hamiltonian Monte Carlo estimation of three parametets, $\alpha, \beta, \lambda$, of this function:
+
+<br>
+$\psi(x; \alpha, \beta, \lambda) = 0.5 + (0.5 - \lambda)\Phi(x; \alpha, \beta)$, 
+<br>
+
+where $\psi$ is the proportion of correct answers, $x$ is the lag-lead ratio, LLR, in dB, $\Phi$ is the normal cumulative distribution function with location parameter $\alpha$ and scale parameter $\beta$, and $\lambda$ is the lapse-rate parameter (cf.  Kingdom & Prins, 2016, Ch. 4). A threshold was calculated by inverting the functiont to the find the LLR corresponding to 75 % correct responses.  
+
+
+This parametrization of $\Phi$ was used: $\Phi(\frac{(x -\alpha)} \beta)$, so the 75 % threholds is given by  
+
+<br>
+$\psi^{-1}(0.75) = \alpha + \beta [\Phi^{-1}(\frac{0.25}{0.5 - \lambda})]$, 
+<br>  
+
+For this parameterization, $\alpha$ is the stimulus level [dB] of the function at its midpoint between the lower and upper asymptote, i.e., $\Phi^{-1}(0.75 - \lambda/2)$ (close to 75 % for small lapse rate $\lambda$), and  $\beta$ is the stimulus interval [dB] corresponding to a region around the midpoint (middle 38 % of the function between its lower and upper asymptote), sometimes called *width* or *spread* of the psychometric function.  
+
+Weakly infomred priors were used:
+
++ $\alpha \sim Uniform(-60, 10)$, beacuse 10 dB was the theoretical maximum given the experimental design, and -60 would be inaudible based on prior testing.  
++ $\beta \sim Uniform(0, 40)$, beacuse the function should increase with stimulus levels (no negative values), and 40 dB represents a large part of the available stimulus range.
++ $\lambda \sim Beta(1, 29)$, because lapses are rare and this distribution has 95 % of its probability < 0.1, with increasingly higher probability as one approaches zero from the right. 
+
+### STAN model
+The STAN model was saved in a separate file called `psychomteric_function_revised.stan`. Here is the content of the file (m = $\alpha$, w = $\beta$ above, for no particular reason):
+
+```{}
+data {
+int<lower=1> N;
+vector[N] x;
+int<lower=0,upper=1> y[N];
+}
+parameters {
+real m;
+real<lower=0> w;
+real<lower=0> lambda;
+}
+model {
+m ~ uniform(-60,10);
+w ~ uniform(0,40);
+lambda ~ beta(1,29);
+for (i in 1:N)
+{
+y[i] ~ bernoulli(0.5 + (0.5-lambda)*Phi((x[i]-m)/w));
+}
+}
+```
+
+
+<br>
+<br>
+
+### Function moving() that calls Rstan and outputs threshold estimates. 
+
+```{r}
+moving <- function(tau = 1, startday = 1, iter = 1e4, warmup = 2e3) {
+  g <- d[d$tau == tau & d$day >= startday &  d$day < (startday + 10), ]
+  y <- as.integer(g$pc)
+  x <- g$ratio
+  N <- as.integer(length(y))
+
+  model <- stan("psychometric_function_revised.stan", data = list(N = N, x = x, y = y),
+              chains = 1, iter = iter, warmup = warmup)
+  print(model)
+  
+  draws <- extract(model)
+  m <- as.vector(draws$m)
+  w <- as.vector(draws$w) 
+  lapse <- as.vector(draws$lambda)
+  
+  # Threhold at 75 % correct responses (by inverting psychometric function)
+  th <- m + w * qnorm(0.25/(0.5 - lapse))
+  thhdi <- HPDI(th, prob = 0.95)
+  names(thhdi) <- c('', '')
+ 
+  out <- c(ici = tau, startday = startday, th = chainmode(th), 
+           hdi95lo = thhdi[1], hdi95hi = thhdi[2], w = chainmode(w), lapse = chainmode(lapse))
+  out
+}
+```
+<br>
+<br>
+
+The function `moving()` was called separately for each of the 13 experimental conditions and each 10-day period (Day 1-10, 2-11, 51-60). In total $13 \times 51 = 663$ times. The script is below, BUT:
+<br>
+<br>
+**WARNING! THIS WAS EXTREMELY SLOW** 
+<br>
+<br>
+It took me about 36 hours. I had to do it two times, because my computer crashed half-way through. One reason it is slow is that the STAN-code is recompiled each time `stan()` is called (to avoid that R craches according to message) and that takes plenty of time. I am sure there is a way to specify a STAN-model that does everything in on step (the STAN manual give examples of moving-average models for time series), but I have not figured out how. 
+
+```{r, eval = FALSE}
+
+# Define conditions: startday x ici
+cond <- expand.grid(startday = 1:51, ici = sort(unique(d$tau)))
+all_data_revised <- data.frame(matrix(nrow = 0, ncol = 7))  # Empty data frame
+
+# This has to be done twice, as R craches if you try all 600+ conditions at once
+# Data stored in two files: all_data_stan_revised.RData, 
+# which then are combined. 
+
+# Get data, First from 1 to 320, ...
+for (j in 1:320) {
+  estimates <- moving(tau = cond[j, 2], startday = cond[j, 1])
+  all_data_revised <- rbind(all_data_revised, estimates) # Combine with data from previous iteration
+  
+  # Save data, R may crach, so better save after each iteration
+  save(all_data_revised, file = "all_data_stan_revised.RData")  
+}
+
+# and then fron 321 to nrow(cond)
+for (j in 321:nrow(cond)){
+  estimates <- moving(tau = cond[j, 2], startday = cond[j, 1])
+  all_data_revised <- rbind(all_data_revised, estimates) # Combine with data from previous iteration
+  
+  # Save data, R may crach, so better save after each iteration
+  save(all_data_revised, file = "all_data_stan_revised2.RData")  
+}
+```
+
+<br>
+
+### Store data for Figure 2
+```{r, eval = FALSE}
+# Data was stored in two files for reasons given above. This code loads the two files 
+# and combines them into one datafram
+
+load("all_data_stan_revised.RData")
+d1 <- all_data_revised
+colnames(d1) <- rep('', 7)  # Get rid of strange colnames
+
+load("all_data_stan_revised2.RData")
+d2 <- all_data_revised
+colnames(d2) <- colnames(d2) <- rep('', 7)  # Get rid of strange colnames
+
+standata_revised <- rbind(d1, d2)  # Combine data from the two runs
+
+colnames(float_stan) <- c('ici', 'startday', 'thmode', 'thhdi95lo', 
+                                'thhdi95hi', 'spreadmode', 'lapsemode')
+# Save combined data to file
+save(standata_revised, file = "standata.RData") 
+```
+
+The output was compiled in a file with 663 rows, one for each iteration of moving(). This data was stored in an R-object called `standata.RData`. It is available in the alexis108 package, or may be downloaded from
+github.com/stamnosslin/alexis108/tree/master/data
+
+<br>
+<br>
+<br>
+<br>
+
+## Data for Figure 3, thresholds first 10 versus last 10 days
+
+### STAN model for comparing first and last 10 days
+To compare thresholds from days 1-10 with days 51-60, a stan-model was called from a separate file called `prepost.stan`. Here is the content of the file:
+```{}
+data {
+int<lower=1> N;
+vector[N] x;
+int<lower=0,upper=1> y[N];
+int<lower=0,upper=1> z[N];
+}
+parameters {
+real m1;
+real<lower=0> w1;
+real m2;
+real<lower=0> w2;
+real<lower=0, upper=1> lambda1;
+real<lower=0, upper=1> lambda2;
+}
+model {
+m1 ~ uniform(-60,10);
+w1 ~ uniform(0,40);
+m2 ~ uniform(-60,10);
+w2 ~ uniform(0,40);
+lambda1 ~ beta(1,29);
+lambda2 ~ beta(1,29);
+for (i in 1:N)
+{
+y[i] ~ bernoulli(0.5 + (0.5-((1-z[i])* lambda1 + z[i]*lambda2))*Phi((x[i]-((1-z[i])*m1 + z[i]*m2))/((1-z[i])*w1 + z[i]*w2)));
+}
+}
+```
+
+m1, w1, and lambda1 are location, scale and lapse rate for the first 10 days;  
+m2, w2, and lambda2 are location, scale and lapse rate for the last 10 days, 
+
+<br>
+
+### Function that calls stan() and outputs estimates comparing data from Day 1-10 with data from Day 51-60
+
+This fixes the data to dataframe g used as global variable by the functionfirstlast()
+```{r}
+d <- data108
+d$pc <- 1 * (d$correct == d$answer)  # pc = 1 if answer was correct, 0 if not
+g <- d[(d$day < 11 |  d$day > 50),]  # Remove everything except first and last 10 days
+g$prepost <- (1 * g$day > 50)
+```
+
+<br>
+Here is teh function:
+```{r}
+firstlast <- function(ici, iter = 1e4, warmup = 2e3) {
+  y <- as.integer(g$pc[g$tau == ici])
+  x <- g$ratio[g$tau == ici]
+  z <- as.integer(g$prepost[g$tau == ici])
+  N <- as.integer(length(y))
+  model <- stan("prepost_revised.stan", data = list(N = N, x = x, y = y, z = z), 
+              chains = 1, iter = iter, warmup = warmup)
+  print(model)
+  draws <- extract(model)
+  m1 <- as.vector(draws$m1)
+  w1 <- as.vector(draws$w1)
+  lapse1 <- as.vector(draws$lambda1)
+  m2 <- as.vector(draws$m2)
+  w2 <- as.vector(draws$w2)
+  lapse2 <- as.vector(draws$lambda2) 
+  
+  # Thresholds and 95 % HDI
+  thpre <- m1 + w1 * qnorm(0.25/(0.5 - lapse1))
+  hdipre <- HPDI(thpre, prob = 0.95)
+  thpost <- m2 + w2 * qnorm(0.25/(0.5 - lapse2))
+  hdipost <- HPDI(thpost, prob = 0.95)
+  
+  # Threshold difference
+  thdiff <- thpost - thpre
+  hdidiff <- HPDI(thdiff, prob = 0.95)
+  
+  # Diagnostics
+  mineff <- min(summary(model)$summary[1:6, 9])  #Minimum n_eff 
+  maxR <- max(summary(model)$summary[1:6, 10])  #Minimum n_eff 
+  
+  out <- c(ici = ici, 
+           chainmode(thpre), hdipre, 
+           chainmode(thpost), hdipost,
+           chainmode(thdiff), hdidiff,
+           chainmode(w1), chainmode(w2),
+           chainmode(lapse1), chainmode(lapse2),
+           mineff, maxR)
+  out
+}
+
+```
+
+
+<br>
+
+### Store data for Figure 3
+The output was compiled in a file with 26 rows, one for each iteration of `firstlast()`. This data was stored in an R-object called `prepost_stan.RData`. It is available in the alexis108 package, or it may be downloaded from github.com/stamnosslin/alexis108/tree/master/data
+```{r, eval = FALSE}
+conditions <- sort(unique(g$tau))
+prepost_stan <- sapply(conditions, firstlast)  # Analysis conducted here
+prepost_stan <- data.frame(t(prepost_stan)) # Reformat matrix
+colnames(prepost_stan) <- c('ici', 'thmode_pre', 'hdi95pre_lo', 'hdi95pre_hi',
+                                   'thmode_post', 'hdi95post_lo', 'hdi95post_hi', 
+                                   'thdiff', 'hdi95diff_lo', 'hdi95diff_hi',
+                                    'wmode_pre', 'wmode_post', 
+                                    'lapsemdn_pre', 'lapsemdn_post',
+                                    'min_neff', 'maxR')
+
+save(prepost_stan, file = "prepost_stan.RData")
+```
+
+
+<br>
+<br>
+<br>
+<br>
