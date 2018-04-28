@@ -1,10 +1,10 @@
 # alexis108
 
-This R library contains data from an experiment (called alexis108) the resulst of which were described in a manuscript submitted to JASA-Express Letters (2018-02-23) and then resubmitted (2018-04-28).
+This R library contains data from an experiment (called alexis108) described in a manuscript submitted to JASA-Express Letters (2018-02-23), resubmitted (2018-04-28).
 
 <br>
 
-The easiest way to acces the data is to install it as an R library:
+The easiest way to access the data is to install it as an R library:
 
 + install.packages("devtools")
 + devtools::install_github("stamnosslin/alexis108") 
@@ -19,7 +19,7 @@ After installation of alexis108 you may load the library, library(alexis108), an
 <br>
 
 
-The rawdata files are found in folder ./data-raw  
+The raw-data files are found in folder ./data-raw  
 
 + **oskar_ild_mntraining.txt**, Main experiment. Codebook is given in the first lines of the file (marked #)
 + **detection_r2afc_result_mn.txt**, Extra experiment. Codebook is given in the first lines of the file (marked #)
