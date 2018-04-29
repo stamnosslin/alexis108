@@ -7,7 +7,9 @@ This R library contains data from an experiment (called alexis108) described in 
 The easiest way to access the data is to install it as an R library:
 
 + install.packages("devtools")
-+ devtools::install_github("stamnosslin/alexis108") 
++ devtools::install_github("stamnosslin/alexis108", build_vignettes = TRUE)
+
+Note: the argument build_vignettes=TRUE not necessary; it will load the vignettes containing information about the data and the experiment.
 
 After installation of alexis108 you may load the library, library(alexis108), and view help files and vignettes by  
 
