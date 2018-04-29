@@ -9,7 +9,13 @@ The easiest way to access the data is to install it as an R library:
 + install.packages("devtools")
 + devtools::install_github("stamnosslin/alexis108") 
 
-After installation of alexis108 you may load the library, library(alexis108), and then access four datasets:  
+After installation of alexis108 you may load the library, library(alexis108), and view help files and vignettes by  
+
+help(package = "alexis108")
+
+<br>
+
+The package contains four datasets:  
 
 + **data108**,  Main data, use help(data108) to see the code book
 + **prepost_stan**,  Data for the manuscript's Figure 2. Datafile explained in vignette *data_analys_jasael_manuscript*
