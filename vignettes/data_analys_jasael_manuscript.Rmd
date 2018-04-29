@@ -9,22 +9,22 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This vignette describes analyses of the ALEXIS 108 data as presented in a manuscript first submitted to JASA-Express Letters 2018-02-23, and then resubmitted 2018-04-28. The analysis below refer to the revised manuscript. 
+This vignette describes analyses of the ALEXIS 108 data as presented in a manuscript submitted to JASA-Express Letters 2018-02-23, and then resubmitted 2018-04-28. The analysis below refer to the revised manuscript. 
 
 ## R Libraries
-Two R-libraries are used:
+Three R-libraries are used:
 
-+ **alexis108** contains the data. It can be installed from github using the R library **devtools**, or you could just download the datafile `oskar_ild_mntraining.txt` from github: github.com/stamnosslin/alexis108/tree/master/data  
++ **alexis108** contains the data. It can be installed from github using the R library **devtools**, or you could just download the data file `oskar_ild_mntraining.txt` from github: github.com/stamnosslin/alexis108/tree/master/data-raw  
 
 + **rstan** is used for fitting psychometric functions to data using Hamiltonian Monte Carlo estimation.
 
-+ **rethinking** is used for summarizing the posterior, using chainmode() for teh mode and HPDI() for 95 % credibility interval.
++ **rethinking** is used for summarizing the posterior, using chainmode() for the mode and HPDI() for 95 % credibility interval.
 
 ```{r message = FALSE}
 # devtools::install_github("stamnosslin/alexis108")  # Installs alexis108 
 library(alexis108)
-library(rstan)
-library(rethinking)
+# library(rstan)
+# library(rethinking)
 ```
 <br>
 <br>
@@ -92,16 +92,16 @@ round(sapply(c(-15.057090, -16.840977), llr_to_ild), 1)
 <br>
 
 ## Data for Figure 2, threshold trend plot for each stimulus condition
-Thresholds were caluclted using Hamiltonian Monte Carlo estimation of three parametets, $\alpha, \beta, \lambda$, of this function:
+Thresholds were calculated using Hamiltonian Monte Carlo estimation of three parameters, $\alpha, \beta, \lambda$, of this function:
 
 <br>
 $\psi(x; \alpha, \beta, \lambda) = 0.5 + (0.5 - \lambda)\Phi(x; \alpha, \beta)$, 
 <br>
 
-where $\psi$ is the proportion of correct answers, $x$ is the lag-lead ratio, LLR, in dB, $\Phi$ is the normal cumulative distribution function with location parameter $\alpha$ and scale parameter $\beta$, and $\lambda$ is the lapse-rate parameter (cf.  Kingdom & Prins, 2016, Ch. 4). A threshold was calculated by inverting the functiont to the find the LLR corresponding to 75 % correct responses.  
+where $\psi$ is the proportion of correct answers, $x$ is the lag-lead ratio, LLR, in dB, $\Phi$ is the normal cumulative distribution function with location parameter $\alpha$ and scale parameter $\beta$, and $\lambda$ is the lapse-rate parameter (cf.  Kingdom & Prins, 2016, Ch. 4). A threshold was calculated by inverting the function to the find the LLR corresponding to 75 % correct responses.  
 
 
-This parametrization of $\Phi$ was used: $\Phi(\frac{(x -\alpha)} \beta)$, so the 75 % threholds is given by  
+This parametrization of $\Phi$ was used: $\Phi(\frac{(x -\alpha)} \beta)$, so the 75 % thresholds is given by  
 
 <br>
 $\psi^{-1}(0.75) = \alpha + \beta [\Phi^{-1}(\frac{0.25}{0.5 - \lambda})]$, 
@@ -109,10 +109,10 @@ $\psi^{-1}(0.75) = \alpha + \beta [\Phi^{-1}(\frac{0.25}{0.5 - \lambda})]$,
 
 For this parameterization, $\alpha$ is the stimulus level [dB] of the function at its midpoint between the lower and upper asymptote, i.e., $\Phi^{-1}(0.75 - \lambda/2)$ (close to 75 % for small lapse rate $\lambda$), and  $\beta$ is the stimulus interval [dB] corresponding to a region around the midpoint (middle 38 % of the function between its lower and upper asymptote), sometimes called *width* or *spread* of the psychometric function.  
 
-Weakly infomred priors were used:
+Weakly informed priors were used:
 
-+ $\alpha \sim Uniform(-60, 10)$, beacuse 10 dB was the theoretical maximum given the experimental design, and -60 would be inaudible based on prior testing.  
-+ $\beta \sim Uniform(0, 40)$, beacuse the function should increase with stimulus levels (no negative values), and 40 dB represents a large part of the available stimulus range.
++ $\alpha \sim Uniform(-60, 10)$, because 10 dB was the theoretical maximum given the experimental design, and -60 would be inaudible based on prior testing.  
++ $\beta \sim Uniform(0, 40)$, because the function should increase with stimulus levels (no negative values), and 40 dB represents a large part of the available stimulus range.
 + $\lambda \sim Beta(1, 29)$, because lapses are rare and this distribution has 95 % of its probability < 0.1, with increasingly higher probability as one approaches zero from the right. 
 
 ### STAN model
@@ -181,7 +181,7 @@ The function `moving()` was called separately for each of the 13 experimental co
 **WARNING! THIS WAS EXTREMELY SLOW** 
 <br>
 <br>
-It took me about 36 hours. I had to do it two times, because my computer crashed half-way through. One reason it is slow is that the STAN-code is recompiled each time `stan()` is called (to avoid that R craches according to message) and that takes plenty of time. I am sure there is a way to specify a STAN-model that does everything in on step (the STAN manual give examples of moving-average models for time series), but I have not figured out how. 
+It took me about 36 hours. I had to do it two times, because my computer crashed half-way through. One reason it is slow is that the STAN-code is recompiled each time `stan()` is called (to avoid that R crashes according to message) and that takes plenty of time. I am sure there is a way to specify a STAN-model that does everything in on step (the STAN manual give examples of moving-average models for time series), but I have not figured out how. 
 
 ```{r, eval = FALSE}
 
@@ -276,14 +276,15 @@ y[i] ~ bernoulli(0.5 + (0.5-((1-z[i])* lambda1 + z[i]*lambda2))*Phi((x[i]-((1-z[
 }
 ```
 
-m1, w1, and lambda1 are location, scale and lapse rate for the first 10 days;  
-m2, w2, and lambda2 are location, scale and lapse rate for the last 10 days, 
+m1, w1, and lambda1 are location, scale and lapse rate for the first 10 days.  
+
+m2, w2, and lambda2 are location, scale and lapse rate for the last 10 days.
 
 <br>
 
 ### Function that calls stan() and outputs estimates comparing data from Day 1-10 with data from Day 51-60
 
-This fixes the data to dataframe g used as global variable by the functionfirstlast()
+This fixes the data to dataframe g used as global variable by the function firstlast()
 ```{r}
 d <- data108
 d$pc <- 1 * (d$correct == d$answer)  # pc = 1 if answer was correct, 0 if not
@@ -292,7 +293,7 @@ g$prepost <- (1 * g$day > 50)
 ```
 
 <br>
-Here is teh function:
+Here is the function:
 ```{r}
 firstlast <- function(ici, iter = 1e4, warmup = 2e3) {
   y <- as.integer(g$pc[g$tau == ici])

@@ -12,7 +12,7 @@
 
 <meta name="author" content="Mats E. Nilsson" />
 
-<meta name="date" content="2018-02-23" />
+<meta name="date" content="2018-04-29" />
 
 <title>Analysis for manuscript submitted to JASA-EL</title>
 
@@ -70,52 +70,54 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Analysis for manuscript submitted to JASA-EL</h1>
 <h4 class="author"><em>Mats E. Nilsson</em></h4>
-<h4 class="date"><em>2018-02-23</em></h4>
+<h4 class="date"><em>2018-04-29</em></h4>
 
 
 
-<p>This vignette describes analyses of the ALEXIS 108 data as presented in a manuscript submitted to JASA-Express Letters, submitted 2018-02-23 .</p>
+<p>This vignette describes analyses of the ALEXIS 108 data as presented in a manuscript submitted to JASA-Express Letters 2018-02-23, and then resubmitted 2018-04-28. The analysis below refer to the revised manuscript.</p>
 <div id="r-libraries" class="section level2">
 <h2>R Libraries</h2>
-<p>Two R-libraries are used:</p>
+<p>Three R-libraries are used:</p>
 <ul>
-<li><p><strong>alexis108</strong> contains the data. It can be installed from github using the R library <strong>devtools</strong>, or you could just download the datafile <code>oskar_ild_mntraining.txt</code> from github: github.com/stamnosslin/alexis108/tree/master/data</p></li>
+<li><p><strong>alexis108</strong> contains the data. It can be installed from github using the R library <strong>devtools</strong>, or you could just download the data file <code>oskar_ild_mntraining.txt</code> from github: github.com/stamnosslin/alexis108/tree/master/data-raw</p></li>
 <li><p><strong>rstan</strong> is used for fitting psychometric functions to data using Hamiltonian Monte Carlo estimation.</p></li>
+<li><p><strong>rethinking</strong> is used for summarizing the posterior, using chainmode() for the mode and HPDI() for 95 % credibility interval.</p></li>
 </ul>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># devtools::install_github(&quot;stamnosslin/alexis108&quot;)  # Installs alexis108 </span>
-<span class="kw">library</span>(alexis108)  <span class="co"># Get data</span>
-<span class="kw">library</span>(rstan)  <span class="co"># Fit psychometric function using Hamiltonian Monte Carlo estimation</span></code></pre></div>
+<span class="kw">library</span>(alexis108)
+<span class="co"># library(rstan)</span>
+<span class="co"># library(rethinking)</span></code></pre></div>
 <p><br> <br></p>
 </div>
 <div id="get-data" class="section level2">
 <h2>Get data</h2>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Lateralization experiment, stored in data fram d</span>
 d &lt;-<span class="st"> </span>data108
-d<span class="op">$</span>pc &lt;-<span class="st"> </span><span class="dv">1</span> <span class="op">*</span><span class="st"> </span>(d<span class="op">$</span>correct <span class="op">==</span><span class="st"> </span>d<span class="op">$</span>answer)  <span class="co"># pc = 1 if answer was correct, 0 if not</span></code></pre></div>
+d$pc &lt;-<span class="st"> </span><span class="dv">1</span> *<span class="st"> </span>(d$correct ==<span class="st"> </span>d$answer)  <span class="co"># pc = 1 if answer was correct, 0 if not</span></code></pre></div>
 <p><br> <br></p>
 </div>
 <div id="period-during-which-training-was-conducted" class="section level2">
 <h2>Period during which training was conducted</h2>
 <p>Training was conducted in 60 separate days distributed over a period of this many days:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">first &lt;-<span class="st"> </span><span class="kw">as.Date</span>(d<span class="op">$</span>date[<span class="dv">1</span>],<span class="st">'%Y-%m-%d'</span>)
-last &lt;-<span class="st"> </span><span class="kw">as.Date</span>(d<span class="op">$</span>date[<span class="kw">nrow</span>(d)],<span class="st">'%Y-%m-%d'</span>)
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">first &lt;-<span class="st"> </span><span class="kw">as.Date</span>(d$date[<span class="dv">1</span>],<span class="st">'%Y-%m-%d'</span>)
+last &lt;-<span class="st"> </span><span class="kw">as.Date</span>(d$date[<span class="kw">nrow</span>(d)],<span class="st">'%Y-%m-%d'</span>)
 <span class="kw">difftime</span>(last, first, <span class="dt">units =</span> <span class="st">&quot;days&quot;</span>)</code></pre></div>
 <pre><code>## Time difference of 83 days</code></pre>
 <p><br> <br></p>
 </div>
 <div id="number-of-trials-per-10-day-period" class="section level2">
 <h2>Number of trials per 10 day period</h2>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">ndays &lt;-<span class="st"> </span><span class="cf">function</span>(ici) {
-   dfun &lt;-<span class="st"> </span><span class="cf">function</span>(startday) {
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">ndays &lt;-<span class="st"> </span>function(ici) {
+   dfun &lt;-<span class="st"> </span>function(startday) {
      tau &lt;-<span class="st"> </span>ici
-     days &lt;-<span class="st"> </span><span class="kw">seq</span>(startday, startday <span class="op">+</span><span class="st"> </span><span class="dv">9</span>)
-     <span class="kw">length</span>(d<span class="op">$</span>pc[d<span class="op">$</span>tau <span class="op">==</span><span class="st"> </span>tau <span class="op">&amp;</span><span class="st"> </span>d<span class="op">$</span>day <span class="op">%in%</span><span class="st"> </span>days])
+     days &lt;-<span class="st"> </span><span class="kw">seq</span>(startday, startday +<span class="st"> </span><span class="dv">9</span>)
+     <span class="kw">length</span>(d$pc[d$tau ==<span class="st"> </span>tau &amp;<span class="st"> </span>d$day %in%<span class="st"> </span>days])
    }
    
-   <span class="kw">sapply</span>(<span class="dv">1</span><span class="op">:</span><span class="dv">51</span>, dfun)
+   <span class="kw">sapply</span>(<span class="dv">1</span>:<span class="dv">51</span>, dfun)
 }
 
-taus &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">unique</span>(d<span class="op">$</span>tau))  <span class="co"># Stimulus conditions (tau = ici)</span>
+taus &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">unique</span>(d$tau))  <span class="co"># Stimulus conditions (tau = ici)</span>
 ntrials &lt;-<span class="st"> </span><span class="kw">sapply</span>(taus, ndays)
 <span class="kw">summary</span>(<span class="kw">apply</span>(ntrials, <span class="dv">2</span>, mean))</code></pre></div>
 <pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
@@ -124,150 +126,143 @@ ntrials &lt;-<span class="st"> </span><span class="kw">sapply</span>(taus, ndays
 </div>
 <div id="function-to-convert-llr-to-ild-for-the-ici-0-condition" class="section level2">
 <h2>Function to convert LLR to ILD for the ICI = 0 condition</h2>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">llr_to_ild &lt;-<span class="st"> </span><span class="cf">function</span>(llr) {
-  lmax &lt;-<span class="st"> </span><span class="dv">20</span> <span class="op">*</span><span class="st"> </span><span class="kw">log10</span> (<span class="dv">10</span><span class="op">^</span>(<span class="dv">0</span><span class="op">/</span><span class="dv">20</span>) <span class="op">+</span><span class="st"> </span><span class="dv">10</span><span class="op">^</span>(llr<span class="op">/</span><span class="dv">20</span>))
-  lmin &lt;-<span class="st"> </span><span class="dv">20</span> <span class="op">*</span><span class="st"> </span><span class="kw">log10</span> (<span class="dv">10</span><span class="op">^</span>(<span class="dv">0</span><span class="op">/</span><span class="dv">20</span>) <span class="op">+</span><span class="st"> </span><span class="dv">10</span><span class="op">^</span>((llr<span class="op">-</span><span class="dv">10</span>)<span class="op">/</span><span class="dv">20</span>))
-  lmax<span class="op">-</span>lmin
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">llr_to_ild &lt;-<span class="st"> </span>function(llr) {
+  lmax &lt;-<span class="st"> </span><span class="dv">20</span> *<span class="st"> </span><span class="kw">log10</span> (<span class="dv">10</span>^(<span class="dv">0</span>/<span class="dv">20</span>) +<span class="st"> </span><span class="dv">10</span>^(llr/<span class="dv">20</span>))
+  lmin &lt;-<span class="st"> </span><span class="dv">20</span> *<span class="st"> </span><span class="kw">log10</span> (<span class="dv">10</span>^(<span class="dv">0</span>/<span class="dv">20</span>) +<span class="st"> </span><span class="dv">10</span>^((llr<span class="dv">-10</span>)/<span class="dv">20</span>))
+  lmax-lmin
 }
 
 <span class="co"># Example given in the Method section</span>
-llrs &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dv">10</span>, <span class="dv">0</span>, <span class="op">-</span><span class="dv">10</span>, <span class="op">-</span><span class="dv">20</span>)  
+llrs &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dv">10</span>, <span class="dv">0</span>, -<span class="dv">10</span>, -<span class="dv">20</span>)  
 <span class="kw">round</span>(<span class="kw">sapply</span>(llrs, llr_to_ild),<span class="dv">1</span>)</code></pre></div>
 <pre><code>## [1] 6.4 3.6 1.6 0.6</code></pre>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># LLR at threshold for ICI = 0 ms was -15 dB for days 1-10, and -17 dB LLR for days 51-60. This calculates the corresponding ILDs</span>
-<span class="kw">round</span>(<span class="kw">sapply</span>(<span class="kw">c</span>(<span class="op">-</span><span class="fl">15.057090</span>, <span class="op">-</span><span class="fl">16.840977</span>), llr_to_ild), <span class="dv">1</span>) </code></pre></div>
+<span class="kw">round</span>(<span class="kw">sapply</span>(<span class="kw">c</span>(-<span class="fl">15.057090</span>, -<span class="fl">16.840977</span>), llr_to_ild), <span class="dv">1</span>) </code></pre></div>
 <pre><code>## [1] 0.9 0.8</code></pre>
 <p><br> <br></p>
 </div>
 <div id="data-for-figure-2-threshold-trend-plot-for-each-stimulus-condition" class="section level2">
 <h2>Data for Figure 2, threshold trend plot for each stimulus condition</h2>
-<p>Thresholds were caluclted using Hamiltonian Monte Carlo estimation of three parametets, <span class="math inline">\(\alpha, \beta, \lambda\)</span>, of this function:</p>
-<p><br> <span class="math inline">\(\psi(x; \alpha, \beta, \lambda) = 0.5 + (0.5 - \lambda)\Phi(\alpha + x\beta)\)</span>, <br></p>
-<p>where <span class="math inline">\(\psi\)</span> is the proportion of correct answers, <span class="math inline">\(x\)</span> is the lag-lead ratio, LLR, in dB, <span class="math inline">\(\Phi\)</span>ï is the normal cumulative distribution function with location parameter <span class="math inline">\(\alpha\)</span> and scale parameter <span class="math inline">\(\beta\)</span>, and <span class="math inline">\(\lambda\)</span> is the lapse-rate parameter (cf. Kingdom &amp; Prins, 2016, Ch. 4). A threshold was calculated by inverting the functiont to the find the LLR corresponding to 75 % correct responses:</p>
-<p><br> <span class="math inline">\(\psi^{-1}(0.75) = (\Phi^{-1}(\frac{0.25}{0.5 - \lambda}) - \alpha) / \beta\)</span>, <br></p>
+<p>Thresholds were calculated using Hamiltonian Monte Carlo estimation of three parameters, <span class="math inline">\(\alpha, \beta, \lambda\)</span>, of this function:</p>
+<p><br> <span class="math inline">\(\psi(x; \alpha, \beta, \lambda) = 0.5 + (0.5 - \lambda)\Phi(x; \alpha, \beta)\)</span>, <br></p>
+<p>where <span class="math inline">\(\psi\)</span> is the proportion of correct answers, <span class="math inline">\(x\)</span> is the lag-lead ratio, LLR, in dB, <span class="math inline">\(\Phi\)</span> is the normal cumulative distribution function with location parameter <span class="math inline">\(\alpha\)</span> and scale parameter <span class="math inline">\(\beta\)</span>, and <span class="math inline">\(\lambda\)</span> is the lapse-rate parameter (cf. Kingdom &amp; Prins, 2016, Ch. 4). A threshold was calculated by inverting the function to the find the LLR corresponding to 75 % correct responses.</p>
+<p>This parametrization of <span class="math inline">\(\Phi\)</span> was used: <span class="math inline">\(\Phi(\frac{(x -\alpha)} \beta)\)</span>, so the 75 % thresholds is given by</p>
+<p><br> <span class="math inline">\(\psi^{-1}(0.75) = \alpha + \beta [\Phi^{-1}(\frac{0.25}{0.5 - \lambda})]\)</span>, <br></p>
+<p>For this parameterization, <span class="math inline">\(\alpha\)</span> is the stimulus level [dB] of the function at its midpoint between the lower and upper asymptote, i.e., <span class="math inline">\(\Phi^{-1}(0.75 - \lambda/2)\)</span> (close to 75 % for small lapse rate <span class="math inline">\(\lambda\)</span>), and <span class="math inline">\(\beta\)</span> is the stimulus interval [dB] corresponding to a region around the midpoint (middle 38 % of the function between its lower and upper asymptote), sometimes called <em>width</em> or <em>spread</em> of the psychometric function.</p>
+<p>Weakly informed priors were used:</p>
+<ul>
+<li><span class="math inline">\(\alpha \sim Uniform(-60, 10)\)</span>, because 10 dB was the theoretical maximum given the experimental design, and -60 would be inaudible based on prior testing.<br />
+</li>
+<li><span class="math inline">\(\beta \sim Uniform(0, 40)\)</span>, because the function should increase with stimulus levels (no negative values), and 40 dB represents a large part of the available stimulus range.</li>
+<li><span class="math inline">\(\lambda \sim Beta(1, 29)\)</span>, because lapses are rare and this distribution has 95 % of its probability &lt; 0.1, with increasingly higher probability as one approaches zero from the right.</li>
+</ul>
 <div id="stan-model" class="section level3">
 <h3>STAN model</h3>
-<p>The STAN model was saved in a separate file called <code>psychomteric_function.stan</code>. Here is the content of the file:</p>
+<p>The STAN model was saved in a separate file called <code>psychomteric_function_revised.stan</code>. Here is the content of the file (m = <span class="math inline">\(\alpha\)</span>, w = <span class="math inline">\(\beta\)</span> above, for no particular reason):</p>
 <pre><code>data {
 int&lt;lower=1&gt; N;
 vector[N] x;
 int&lt;lower=0,upper=1&gt; y[N];
 }
 parameters {
-real alpha;
-real&lt;lower=0&gt; beta;
+real m;
+real&lt;lower=0&gt; w;
 real&lt;lower=0&gt; lambda;
 }
 model {
-alpha ~ cauchy(0,20);
-beta ~ cauchy(0,2);
-lambda ~ cauchy(0,0.02);
+m ~ uniform(-60,10);
+w ~ uniform(0,40);
+lambda ~ beta(1,29);
 for (i in 1:N)
 {
-y[i] ~ bernoulli(0.5 + (0.5-lambda)*Phi(alpha + beta * x[i]));
+y[i] ~ bernoulli(0.5 + (0.5-lambda)*Phi((x[i]-m)/w));
 }
 }</code></pre>
 <p><br> <br></p>
 </div>
-<div id="function-that-calls-stan-and-outputs-threshold-estimates." class="section level3">
-<h3>Function that calls stan() and outputs threshold estimates.</h3>
-<p><em>Input:</em></p>
-<ul>
-<li>ici — Value of inter-click interval (called tau in the raw data files), numeric</li>
-<li>startday — First day of 10 day period for which threshold is calculated, numeric</li>
-<li>chains — Number of chains of sampling from the posterior, numeric</li>
-<li>iter — Number of samples drawn, numeric</li>
-<li>warmup – Number of warmup samples, hasd to be less than iter, numeric</li>
-</ul>
-<p><em>Output:</em> Vector with estimates calculated from the posterior distribution, and diagnostics from STAN (n_eff = effective samples; Rhat = convergence, should be 1.00). <strong>Bold</strong> entries were used in the manuscript to draw Figure 2.</p>
-<ul>
-<li>startday — Same as input</li>
-<li><strong>thmean — Mean threshold</strong><br />
-</li>
-<li>thmedian — Median threshold</li>
-<li><strong>th95lo — Lower 95 % credibility interval of threshold</strong><br />
-</li>
-<li><strong>th95hi — Upper 95 % credibility interval of threshold</strong></li>
-<li>meanlapse — Mean of lapse rate parameter</li>
-<li>medianlapse — Median of lapse rate parameter</li>
-<li>maxlapse — Maximum of lapse rate parameter</li>
-<li>a_eff — Diagnostics for <span class="math inline">\(\alpha\)</span></li>
-<li>b_eff — Diagnostics for <span class="math inline">\(\beta\)</span></li>
-<li>lambda_eff — Diagnostics for <span class="math inline">\(\lambda\)</span></li>
-<li>a_Rhat — Diagnostics for <span class="math inline">\(\alpha\)</span></li>
-<li>b_Rhat — Diagnostics for <span class="math inline">\(\beta\)</span></li>
-<li>lambda_Rhat – Diagnostics for <span class="math inline">\(\lambda\)</span></li>
-</ul>
-<p><em>Global variable required:</em> data.frame <code>dd</code>, a cleaned version of the raw data file (STAN doesn’t like files with unused variables), created below.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">dd &lt;-<span class="st"> </span>d[, <span class="kw">c</span>(<span class="dv">4</span>, <span class="dv">9</span>, <span class="dv">13</span>)]  <span class="co"># Only d$day, d$ratio and d$pc</span></code></pre></div>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">moving &lt;-<span class="st"> </span><span class="cf">function</span>(ici, <span class="dt">startday =</span> <span class="dv">1</span>, <span class="dt">chains =</span> <span class="dv">1</span>, <span class="dt">iter =</span> <span class="fl">1e4</span>, <span class="dt">warmup =</span> <span class="fl">2e3</span>) {
-  
-  <span class="co"># Compile data</span>
-  g &lt;-<span class="st"> </span>dd[dd<span class="op">$</span>tau <span class="op">==</span><span class="st"> </span>ici <span class="op">&amp;</span><span class="st"> </span>dd<span class="op">$</span>day <span class="op">&gt;=</span><span class="st"> </span>startday <span class="op">&amp;</span><span class="st">  </span>dd<span class="op">$</span>day <span class="op">&lt;</span><span class="st"> </span>(startday <span class="op">+</span><span class="st"> </span><span class="dv">10</span>),]
-  y &lt;-<span class="st"> </span><span class="kw">as.integer</span>(g<span class="op">$</span>pc)  <span class="co"># Answer</span>
-  x &lt;-<span class="st"> </span>g<span class="op">$</span>ratio  <span class="co"># Level</span>
+<div id="function-moving-that-calls-rstan-and-outputs-threshold-estimates." class="section level3">
+<h3>Function moving() that calls Rstan and outputs threshold estimates.</h3>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">moving &lt;-<span class="st"> </span>function(<span class="dt">tau =</span> <span class="dv">1</span>, <span class="dt">startday =</span> <span class="dv">1</span>, <span class="dt">iter =</span> <span class="fl">1e4</span>, <span class="dt">warmup =</span> <span class="fl">2e3</span>) {
+  g &lt;-<span class="st"> </span>d[d$tau ==<span class="st"> </span>tau &amp;<span class="st"> </span>d$day &gt;=<span class="st"> </span>startday &amp;<span class="st">  </span>d$day &lt;<span class="st"> </span>(startday +<span class="st"> </span><span class="dv">10</span>), ]
+  y &lt;-<span class="st"> </span><span class="kw">as.integer</span>(g$pc)
+  x &lt;-<span class="st"> </span>g$ratio
   N &lt;-<span class="st"> </span><span class="kw">as.integer</span>(<span class="kw">length</span>(y))
+
+  model &lt;-<span class="st"> </span><span class="kw">stan</span>(<span class="st">&quot;psychometric_function_revised.stan&quot;</span>, <span class="dt">data =</span> <span class="kw">list</span>(<span class="dt">N =</span> N, <span class="dt">x =</span> x, <span class="dt">y =</span> y),
+              <span class="dt">chains =</span> <span class="dv">1</span>, <span class="dt">iter =</span> iter, <span class="dt">warmup =</span> warmup)
+  <span class="kw">print</span>(model)
   
-  <span class="co"># Run STAN</span>
-  model &lt;-<span class="st"> </span><span class="kw">stan</span>(<span class="st">&quot;psychometric_function.stan&quot;</span>, <span class="dt">data =</span> <span class="kw">list</span>(<span class="dt">N =</span> N, <span class="dt">x =</span> x, <span class="dt">y =</span> y), 
-              <span class="dt">chains =</span> chains, <span class="dt">iter =</span> iter, <span class="dt">warmup =</span> warmup)
-  <span class="kw">print</span>(model)  <span class="co">#Print output</span>
+  draws &lt;-<span class="st"> </span><span class="kw">extract</span>(model)
+  m &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$m)
+  w &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$w) 
+  lapse &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$lambda)
   
-  <span class="co"># Get sampled parameters from the Posterior distribution</span>
-  a &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>alpha[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  b &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>beta[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  cc  &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>lambda[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  
-  <span class="co"># Get diagnostics</span>
-  n_eff &lt;-<span class="st"> </span><span class="kw">summary</span>(model, <span class="dt">pars =</span> <span class="kw">c</span>(<span class="st">&quot;alpha&quot;</span>, <span class="st">&quot;beta&quot;</span>, <span class="st">'lambda'</span>), 
-                   <span class="dt">probs =</span> <span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.9</span>))<span class="op">$</span>summary[, <span class="dv">6</span>]
-  R_hat &lt;-<span class="st"> </span><span class="kw">summary</span>(model, <span class="dt">pars =</span> <span class="kw">c</span>(<span class="st">&quot;alpha&quot;</span>, <span class="st">&quot;beta&quot;</span>, <span class="st">'lambda'</span>), 
-                   <span class="dt">probs =</span> <span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.9</span>))<span class="op">$</span>summary[, <span class="dv">7</span>]
-  
-  <span class="co"># Use sampled parameters to calculate threshold estimate, by inverting function at 75 % correct</span>
-  thpost &lt;-<span class="st"> </span>(<span class="kw">qnorm</span>((<span class="fl">0.75</span><span class="op">-</span><span class="fl">0.5</span>)<span class="op">/</span>(<span class="fl">0.5</span> <span class="op">-</span><span class="st"> </span>cc)) <span class="op">-</span><span class="st"> </span>a) <span class="op">/</span><span class="st">  </span>b  <span class="co"># Threholds</span>
-  ci &lt;-<span class="st"> </span><span class="kw">quantile</span>(thpost, <span class="dt">prob =</span> <span class="kw">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>), <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)  <span class="co"># 95 % interval</span>
-  estimate &lt;-<span class="st"> </span><span class="kw">mean</span>(thpost, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)  <span class="co"># Mean threshold</span>
-  mdn &lt;-<span class="st"> </span><span class="kw">median</span>(thpost, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)
-  
-  <span class="co"># Lapse rate estimates from parameter lambda</span>
-  lapse &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">mean</span>(cc, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="kw">median</span>(cc, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="kw">max</span>(cc, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))
-  
-  <span class="co"># Compile output</span>
-  out &lt;-<span class="st"> </span><span class="kw">c</span>(startday, estimate, mdn, ci, lapse, n_eff, R_hat)
-  <span class="kw">names</span>(out) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">'startday'</span>, <span class="st">'thmean'</span>, <span class="st">'thmedian'</span>, <span class="st">'th95lo'</span>, <span class="st">'th95hi'</span>, 
-                  <span class="st">'meanlapse'</span>, <span class="st">'mdnlapse'</span>, <span class="st">'maxlapse'</span>,
-                  <span class="st">'a_eff'</span>, <span class="st">'b_eff'</span>, <span class="st">'lambda_eff'</span>,
-                  <span class="st">'a_Rhat'</span>, <span class="st">'b_Rhat'</span>, <span class="st">'lambda_Rhat'</span>)
+  <span class="co"># Threhold at 75 % correct responses (by inverting psychometric function)</span>
+  th &lt;-<span class="st"> </span>m +<span class="st"> </span>w *<span class="st"> </span><span class="kw">qnorm</span>(<span class="fl">0.25</span>/(<span class="fl">0.5</span> -<span class="st"> </span>lapse))
+  thhdi &lt;-<span class="st"> </span><span class="kw">HPDI</span>(th, <span class="dt">prob =</span> <span class="fl">0.95</span>)
+  <span class="kw">names</span>(thhdi) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">''</span>, <span class="st">''</span>)
+ 
+  out &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dt">ici =</span> tau, <span class="dt">startday =</span> startday, <span class="dt">th =</span> <span class="kw">chainmode</span>(th), 
+           <span class="dt">hdi95lo =</span> thhdi[<span class="dv">1</span>], <span class="dt">hdi95hi =</span> thhdi[<span class="dv">2</span>], <span class="dt">w =</span> <span class="kw">chainmode</span>(w), <span class="dt">lapse =</span> <span class="kw">chainmode</span>(lapse))
   out
 }</code></pre></div>
 <p><br> <br></p>
-<p>The function <code>moving()</code> was called separately for each of the 13 experimental conditions and each 10-day period (Day 1-10, 2-11, 51-60). In total <span class="math inline">\(13 \times 51 = 663\)</span> times. The script is below, BUT: <br> <br> <strong>WARNING! THIS WAS EXTREMELY SLOW</strong> <br> <br> It took me about 36 hours. I had to do it two times, because my computer crashed half-way through. One reason it is slow is that the STAN-code is recompiled each time <code>stan()</code> is called (to avoid that R craches according to message) and that takes plenty of time. I am sure there is a way to specify a STAN-model that does everything in on step (the STAN manual give examples of moving-average models for time series), but I have not figured out how.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Run stan() for all ici</span>
-exp_conditions &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">unique</span>(d<span class="op">$</span>tau))  <span class="co"># Exp condition</span>
-all_data &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="kw">matrix</span>(<span class="dt">nrow =</span> <span class="dv">0</span>, <span class="dt">ncol =</span> <span class="dv">15</span>))  <span class="co"># Empty data frame</span>
+<p>The function <code>moving()</code> was called separately for each of the 13 experimental conditions and each 10-day period (Day 1-10, 2-11, 51-60). In total <span class="math inline">\(13 \times 51 = 663\)</span> times. The script is below, BUT: <br> <br> <strong>WARNING! THIS WAS EXTREMELY SLOW</strong> <br> <br> It took me about 36 hours. I had to do it two times, because my computer crashed half-way through. One reason it is slow is that the STAN-code is recompiled each time <code>stan()</code> is called (to avoid that R crashes according to message) and that takes plenty of time. I am sure there is a way to specify a STAN-model that does everything in on step (the STAN manual give examples of moving-average models for time series), but I have not figured out how.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Define conditions: startday x ici</span>
+cond &lt;-<span class="st"> </span><span class="kw">expand.grid</span>(<span class="dt">startday =</span> <span class="dv">1</span>:<span class="dv">51</span>, <span class="dt">ici =</span> <span class="kw">sort</span>(<span class="kw">unique</span>(d$tau)))
+all_data_revised &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="kw">matrix</span>(<span class="dt">nrow =</span> <span class="dv">0</span>, <span class="dt">ncol =</span> <span class="dv">7</span>))  <span class="co"># Empty data frame</span>
 
-<span class="cf">for</span> (j <span class="cf">in</span> exp_conditions){
-  dd &lt;-<span class="st"> </span>dd[dd<span class="op">$</span>tau <span class="op">==</span><span class="st"> </span>j, ]
-  th &lt;-<span class="st"> </span><span class="kw">sapply</span>(<span class="dv">1</span><span class="op">:</span><span class="dv">51</span>, moving)  <span class="co"># For days 1-10, ..., 51-60</span>
-  th &lt;-<span class="st"> </span><span class="kw">t</span>(th)
-  ici &lt;-<span class="st"> </span><span class="kw">rep</span>(j, <span class="kw">nrow</span>(th))
-  th &lt;-<span class="st"> </span><span class="kw">cbind</span>(ici, th)  <span class="co"># Add ici column</span>
-  all_data &lt;-<span class="st"> </span><span class="kw">rbind</span>(all_data, th) <span class="co"># Combine with data from previous iteration</span>
-  <span class="kw">save</span>(all_data, <span class="dt">file =</span> <span class="st">&quot;standata.RData&quot;</span>)  <span class="co"># Save data, used for Figure 2. Overwrites old file each iteration</span>
+<span class="co"># This has to be done twice, as R craches if you try all 600+ conditions at once</span>
+<span class="co"># Data stored in two files: all_data_stan_revised.RData, </span>
+<span class="co"># which then are combined. </span>
+
+<span class="co"># Get data, First from 1 to 320, ...</span>
+for (j in <span class="dv">1</span>:<span class="dv">320</span>) {
+  estimates &lt;-<span class="st"> </span><span class="kw">moving</span>(<span class="dt">tau =</span> cond[j, <span class="dv">2</span>], <span class="dt">startday =</span> cond[j, <span class="dv">1</span>])
+  all_data_revised &lt;-<span class="st"> </span><span class="kw">rbind</span>(all_data_revised, estimates) <span class="co"># Combine with data from previous iteration</span>
+  
+  <span class="co"># Save data, R may crach, so better save after each iteration</span>
+  <span class="kw">save</span>(all_data_revised, <span class="dt">file =</span> <span class="st">&quot;all_data_stan_revised.RData&quot;</span>)  
+}
+
+<span class="co"># and then fron 321 to nrow(cond)</span>
+for (j in <span class="dv">321</span>:<span class="kw">nrow</span>(cond)){
+  estimates &lt;-<span class="st"> </span><span class="kw">moving</span>(<span class="dt">tau =</span> cond[j, <span class="dv">2</span>], <span class="dt">startday =</span> cond[j, <span class="dv">1</span>])
+  all_data_revised &lt;-<span class="st"> </span><span class="kw">rbind</span>(all_data_revised, estimates) <span class="co"># Combine with data from previous iteration</span>
+  
+  <span class="co"># Save data, R may crach, so better save after each iteration</span>
+  <span class="kw">save</span>(all_data_revised, <span class="dt">file =</span> <span class="st">&quot;all_data_stan_revised2.RData&quot;</span>)  
 }</code></pre></div>
-<p><br> <br></p>
-<p>The output was compiled in a file with 663 rows, one for each iteration of moving(). This data was stored in an R-object called <code>standata.RData</code>. It is available in the alexis108 package, or may be downloaded from github.com/stamnosslin/alexis108/tree/master/data</p>
-<p><br> <br></p>
+<p><br></p>
 </div>
+<div id="store-data-for-figure-2" class="section level3">
+<h3>Store data for Figure 2</h3>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Data was stored in two files for reasons given above. This code loads the two files </span>
+<span class="co"># and combines them into one datafram</span>
+
+<span class="kw">load</span>(<span class="st">&quot;all_data_stan_revised.RData&quot;</span>)
+d1 &lt;-<span class="st"> </span>all_data_revised
+<span class="kw">colnames</span>(d1) &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="st">''</span>, <span class="dv">7</span>)  <span class="co"># Get rid of strange colnames</span>
+
+<span class="kw">load</span>(<span class="st">&quot;all_data_stan_revised2.RData&quot;</span>)
+d2 &lt;-<span class="st"> </span>all_data_revised
+<span class="kw">colnames</span>(d2) &lt;-<span class="st"> </span><span class="kw">colnames</span>(d2) &lt;-<span class="st"> </span><span class="kw">rep</span>(<span class="st">''</span>, <span class="dv">7</span>)  <span class="co"># Get rid of strange colnames</span>
+
+standata_revised &lt;-<span class="st"> </span><span class="kw">rbind</span>(d1, d2)  <span class="co"># Combine data from the two runs</span>
+
+<span class="kw">colnames</span>(float_stan) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">'ici'</span>, <span class="st">'startday'</span>, <span class="st">'thmode'</span>, <span class="st">'thhdi95lo'</span>, 
+                                <span class="st">'thhdi95hi'</span>, <span class="st">'spreadmode'</span>, <span class="st">'lapsemode'</span>)
+<span class="co"># Save combined data to file</span>
+<span class="kw">save</span>(standata_revised, <span class="dt">file =</span> <span class="st">&quot;standata.RData&quot;</span>) </code></pre></div>
+<p>The output was compiled in a file with 663 rows, one for each iteration of moving(). This data was stored in an R-object called <code>standata.RData</code>. It is available in the alexis108 package, or may be downloaded from github.com/stamnosslin/alexis108/tree/master/data</p>
+<p><br> <br> <br> <br></p>
+</div>
+</div>
+<div id="data-for-figure-3-thresholds-first-10-versus-last-10-days" class="section level2">
+<h2>Data for Figure 3, thresholds first 10 versus last 10 days</h2>
 <div id="stan-model-for-comparing-first-and-last-10-days" class="section level3">
 <h3>STAN model for comparing first and last 10 days</h3>
-<p>To compare thresholds from days 1-10 with days 51-60, parameters of this function was estimated:</p>
-<p><br></p>
-<p><span class="math inline">\(\psi(x; \alpha, \beta, \gamma, \eta, \lambda) = 0.5 + (0.5 - \lambda)\Phi(\alpha + \beta x + \gamma D + \eta Dx)\)</span>,</p>
-<p><br></p>
-<p>where <span class="math inline">\(\psi\)</span> is the proportion of correct answers, <span class="math inline">\(x\)</span> is the lag-lead ratio, LLR in dB, <span class="math inline">\(D\)</span> is a dummy variable coded 0 for days 1-10 and 1 for days 51-60, <span class="math inline">\(\Phi\)</span> is the normal cumulative distribution function with location parameters <span class="math inline">\(\alpha\)</span>, <span class="math inline">\(\gamma\)</span> and scale parameters <span class="math inline">\(\beta\)</span>, <span class="math inline">\(\eta\)</span>, and <span class="math inline">\(\lambda\)</span> is the lapse-rate parameter. The function for days 1-10 thus have location parameter <span class="math inline">\(\alpha\)</span> and scale parameter <span class="math inline">\(beta\)</span> (because <span class="math inline">\(D = 0\)</span>). The function for days 51-60 have location parameter <span class="math inline">\(=\alpha + \gamma\)</span> and scale parameter <span class="math inline">\(=beta + \eta\)</span> (because <span class="math inline">\(D = 1\)</span>). A threshold was calculated by inverting the functiont to the find the LLR corresponding to 75 % correct responses:</p>
-<p><br> The STAN model was saved in a separate file called <code>prepost.stan</code>. Here is the content of the file:</p>
+<p>To compare thresholds from days 1-10 with days 51-60, a stan-model was called from a separate file called <code>prepost.stan</code>. Here is the content of the file:</p>
 <pre><code>data {
 int&lt;lower=1&gt; N;
 vector[N] x;
@@ -275,133 +270,92 @@ int&lt;lower=0,upper=1&gt; y[N];
 int&lt;lower=0,upper=1&gt; z[N];
 }
 parameters {
-real alpha;
-real&lt;lower=0&gt; beta;
-real gamma;
-real eta;
-real&lt;lower=0&gt; lambda;
+real m1;
+real&lt;lower=0&gt; w1;
+real m2;
+real&lt;lower=0&gt; w2;
+real&lt;lower=0, upper=1&gt; lambda1;
+real&lt;lower=0, upper=1&gt; lambda2;
 }
 model {
-alpha ~ cauchy(0,20);
-beta ~ cauchy(0,2);
-gamma ~ cauchy(0,3);
-eta ~ cauchy(0,3);
-lambda ~ cauchy(0,0.02);
+m1 ~ uniform(-60,10);
+w1 ~ uniform(0,40);
+m2 ~ uniform(-60,10);
+w2 ~ uniform(0,40);
+lambda1 ~ beta(1,29);
+lambda2 ~ beta(1,29);
 for (i in 1:N)
 {
-y[i] ~ bernoulli(0.5 + (0.5-lambda)*Phi(alpha + beta * x[i] + gamma * z[i] + eta * x[i] * z[i]));
+y[i] ~ bernoulli(0.5 + (0.5-((1-z[i])* lambda1 + z[i]*lambda2))*Phi((x[i]-((1-z[i])*m1 + z[i]*m2))/((1-z[i])*w1 + z[i]*w2)));
 }
 }</code></pre>
+<p>m1, w1, and lambda1 are location, scale and lapse rate for the first 10 days.</p>
+<p>m2, w2, and lambda2 are location, scale and lapse rate for the last 10 days.</p>
+<p><br></p>
 </div>
 <div id="function-that-calls-stan-and-outputs-estimates-comparing-data-from-day-1-10-with-data-from-day-51-60" class="section level3">
 <h3>Function that calls stan() and outputs estimates comparing data from Day 1-10 with data from Day 51-60</h3>
-<p><em>Input:</em></p>
-<ul>
-<li>ici — Value of inter-click interval (called tau in the raw data files), numeric</li>
-<li>chains — Number of chains of sampling from the posterior, numeric</li>
-<li>iter — Number of samples drawn, numeric</li>
-<li>warmup – Number of warmup samples, hasd to be less than iter, numeric</li>
-</ul>
-<p><em>Output:</em> Vector with estimates calculated from the posterior distribution, and diagnostics from STAN (n_eff = effective samples; Rhat = convergence, should be 1.00). <strong>Bold</strong> entries were used in the manuscript to draw Figure 2.</p>
-<ul>
-<li>ici — Same as input</li>
-<li><strong>thmean_pre — Mean threshold pre</strong><br />
-</li>
-<li><strong>thmean_post — Mean threshold post</strong><br />
-</li>
-<li><strong>thmean_diff — Mean threshold difference post-pre</strong><br />
-</li>
-<li>thmedian_pre — Median threshold pre<br />
-</li>
-<li>thmedian_post — Median threshold post<br />
-</li>
-<li>thmedian_diff — Median threshold difference post-pr</li>
-<li><strong>th95lo_pre — Lower 95 % credibility interval of threshold pre</strong><br />
-</li>
-<li><strong>th95hi_pre — Upper 95 % credibility interval of threshold pre</strong></li>
-<li><strong>th95lo_post — Lower 95 % credibility interval of threshold post</strong><br />
-</li>
-<li><strong>th95hi_post — Upper 95 % credibility interval of threshold post</strong></li>
-<li><strong>th95lo_diff — Lower 95 % credibility interval of threshold post</strong><br />
-</li>
-<li><strong>th95hi_diff — Upper 95 % credibility interval of threshold post</strong></li>
-<li>meanlapse — Mean of lapse rate parameter</li>
-<li>medianlapse — Median of lapse rate parameter</li>
-<li>maxlapse — Maximum of lapse rate parameter</li>
-<li>alpha_eff — Diagnostics for <span class="math inline">\(\alpha\)</span></li>
-<li>beta_eff — Diagnostics for <span class="math inline">\(\beta\)</span></li>
-<li>gamma_eff — Diagnostics for <span class="math inline">\(\gamma\)</span></li>
-<li>eta_eff — Diagnostics for <span class="math inline">\(\eta\)</span></li>
-<li>lambda_eff — Diagnostics for <span class="math inline">\(\lambda\)</span></li>
-<li>alpha_Rhat — Diagnostics for <span class="math inline">\(\alpha\)</span></li>
-<li>beta_Rhat — Diagnostics for <span class="math inline">\(\beta\)</span></li>
-<li>gamma_Rhat — Diagnostics for <span class="math inline">\(\gamma\)</span></li>
-<li>eta_Rhat — Diagnostics for <span class="math inline">\(\eta\)</span></li>
-<li>lambda_Rhat – Diagnostics for <span class="math inline">\(\lambda\)</span></li>
-</ul>
-<p><em>Global variable required:</em> data.frame <code>g</code>, a cleaned version of the raw data file with an extra variable g$prepost, created below.</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">g &lt;-<span class="st"> </span>d[(d<span class="op">$</span>day <span class="op">&lt;</span><span class="st"> </span><span class="dv">11</span> <span class="op">|</span><span class="st">  </span>d<span class="op">$</span>day <span class="op">&gt;</span><span class="st"> </span><span class="dv">50</span>),]  <span class="co"># Only Day 1-10 or Day 51-60</span>
-g<span class="op">$</span>prepost &lt;-<span class="st"> </span>(<span class="dv">1</span> <span class="op">*</span><span class="st"> </span>g<span class="op">$</span>day <span class="op">&gt;</span><span class="st"> </span><span class="dv">50</span>)  <span class="co"># 0 if Day 1-10, 1 if Day 51-60</span></code></pre></div>
-<p><br></p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">firstlast &lt;-<span class="st"> </span><span class="cf">function</span>(ici, <span class="dt">chains =</span> <span class="dv">1</span>, <span class="dt">iter =</span> <span class="fl">1e4</span>, <span class="dt">warmup =</span> <span class="fl">2e3</span>) {
-  <span class="co"># Compile data</span>
-  y &lt;-<span class="st"> </span><span class="kw">as.integer</span>(g<span class="op">$</span>pc[g<span class="op">$</span>tau <span class="op">==</span><span class="st"> </span>ici])
-  x &lt;-<span class="st"> </span>g<span class="op">$</span>ratio[g<span class="op">$</span>tau <span class="op">==</span><span class="st"> </span>ici]
-  z &lt;-<span class="st"> </span><span class="kw">as.integer</span>(g<span class="op">$</span>prepost[g<span class="op">$</span>tau <span class="op">==</span><span class="st"> </span>ici])
+<p>This fixes the data to dataframe g used as global variable by the function firstlast()</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">d &lt;-<span class="st"> </span>data108
+d$pc &lt;-<span class="st"> </span><span class="dv">1</span> *<span class="st"> </span>(d$correct ==<span class="st"> </span>d$answer)  <span class="co"># pc = 1 if answer was correct, 0 if not</span>
+g &lt;-<span class="st"> </span>d[(d$day &lt;<span class="st"> </span><span class="dv">11</span> |<span class="st">  </span>d$day &gt;<span class="st"> </span><span class="dv">50</span>),]  <span class="co"># Remove everything except first and last 10 days</span>
+g$prepost &lt;-<span class="st"> </span>(<span class="dv">1</span> *<span class="st"> </span>g$day &gt;<span class="st"> </span><span class="dv">50</span>)</code></pre></div>
+<p><br> Here is the function:</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">firstlast &lt;-<span class="st"> </span>function(ici, <span class="dt">iter =</span> <span class="fl">1e4</span>, <span class="dt">warmup =</span> <span class="fl">2e3</span>) {
+  y &lt;-<span class="st"> </span><span class="kw">as.integer</span>(g$pc[g$tau ==<span class="st"> </span>ici])
+  x &lt;-<span class="st"> </span>g$ratio[g$tau ==<span class="st"> </span>ici]
+  z &lt;-<span class="st"> </span><span class="kw">as.integer</span>(g$prepost[g$tau ==<span class="st"> </span>ici])
   N &lt;-<span class="st"> </span><span class="kw">as.integer</span>(<span class="kw">length</span>(y))
-  
-  <span class="co"># Run STAN</span>
-  model &lt;-<span class="st"> </span><span class="kw">stan</span>(<span class="st">&quot;prepost.stan&quot;</span>, <span class="dt">data =</span> <span class="kw">list</span>(<span class="dt">N =</span> N, <span class="dt">x =</span> x, <span class="dt">y =</span> y, <span class="dt">z =</span> z), 
-              <span class="dt">chains =</span> chains, <span class="dt">iter =</span> iter, <span class="dt">warmup =</span> warmup)
+  model &lt;-<span class="st"> </span><span class="kw">stan</span>(<span class="st">&quot;prepost_revised.stan&quot;</span>, <span class="dt">data =</span> <span class="kw">list</span>(<span class="dt">N =</span> N, <span class="dt">x =</span> x, <span class="dt">y =</span> y, <span class="dt">z =</span> z), 
+              <span class="dt">chains =</span> <span class="dv">1</span>, <span class="dt">iter =</span> iter, <span class="dt">warmup =</span> warmup)
   <span class="kw">print</span>(model)
-
-  <span class="co"># Get sampled parameters from the Posterior distribution</span>
-  alpha &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>alpha[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  beta &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>beta[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  gamma &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>gamma[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  eta &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>eta[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
-  lambda &lt;-<span class="st"> </span>model<span class="op">@</span>sim<span class="op">$</span>samples[[<span class="dv">1</span>]]<span class="op">$</span>lambda[(warmup <span class="op">+</span><span class="st"> </span><span class="dv">1</span>)<span class="op">:</span>iter]
+  draws &lt;-<span class="st"> </span><span class="kw">extract</span>(model)
+  m1 &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$m1)
+  w1 &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$w1)
+  lapse1 &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$lambda1)
+  m2 &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$m2)
+  w2 &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$w2)
+  lapse2 &lt;-<span class="st"> </span><span class="kw">as.vector</span>(draws$lambda2) 
   
-  <span class="co"># Get diagnostics</span>
-  n_eff &lt;-<span class="st"> </span><span class="kw">summary</span>(model, <span class="dt">pars =</span> <span class="kw">c</span>(<span class="st">&quot;alpha&quot;</span>, <span class="st">&quot;beta&quot;</span>, <span class="st">'gamma'</span>, <span class="st">'eta'</span>, <span class="st">'lambda'</span>), 
-                   <span class="dt">probs =</span> <span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.9</span>))<span class="op">$</span>summary[, <span class="dv">6</span>]
-  R_hat &lt;-<span class="st"> </span><span class="kw">summary</span>(model, <span class="dt">pars =</span> <span class="kw">c</span>(<span class="st">&quot;alpha&quot;</span>, <span class="st">&quot;beta&quot;</span>, <span class="st">'gamma'</span>, <span class="st">'eta'</span>, <span class="st">'lambda'</span>), 
-                   <span class="dt">probs =</span> <span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.9</span>))<span class="op">$</span>summary[, <span class="dv">7</span>]
+  <span class="co"># Thresholds and 95 % HDI</span>
+  thpre &lt;-<span class="st"> </span>m1 +<span class="st"> </span>w1 *<span class="st"> </span><span class="kw">qnorm</span>(<span class="fl">0.25</span>/(<span class="fl">0.5</span> -<span class="st"> </span>lapse1))
+  hdipre &lt;-<span class="st"> </span><span class="kw">HPDI</span>(thpre, <span class="dt">prob =</span> <span class="fl">0.95</span>)
+  thpost &lt;-<span class="st"> </span>m2 +<span class="st"> </span>w2 *<span class="st"> </span><span class="kw">qnorm</span>(<span class="fl">0.25</span>/(<span class="fl">0.5</span> -<span class="st"> </span>lapse2))
+  hdipost &lt;-<span class="st"> </span><span class="kw">HPDI</span>(thpost, <span class="dt">prob =</span> <span class="fl">0.95</span>)
   
-  <span class="co"># Use sampled parameters to calculate threshold estimate, by inverting function at 75 % correct,</span>
-  <span class="co"># separately for first 20 days (pre) and last 10 days (post), and for their difference</span>
-  thpre &lt;-<span class="st"> </span>(<span class="kw">qnorm</span>((<span class="fl">0.75</span><span class="op">-</span><span class="fl">0.5</span>)<span class="op">/</span>(<span class="fl">0.5</span> <span class="op">-</span><span class="st"> </span>lambda)) <span class="op">-</span><span class="st"> </span>alpha) <span class="op">/</span><span class="st">  </span>beta
-  ci_pre &lt;-<span class="st"> </span><span class="kw">quantile</span>(thpre, <span class="dt">prob =</span> <span class="kw">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>), <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)
-  thpost &lt;-<span class="st"> </span>(<span class="kw">qnorm</span>((<span class="fl">0.75</span><span class="op">-</span><span class="fl">0.5</span>)<span class="op">/</span>(<span class="fl">0.5</span> <span class="op">-</span><span class="st"> </span>lambda)) <span class="op">-</span><span class="st"> </span>(alpha <span class="op">+</span><span class="st"> </span>gamma)) <span class="op">/</span><span class="st"> </span>(beta <span class="op">+</span><span class="st"> </span>eta)
-  ci_post &lt;-<span class="st"> </span><span class="kw">quantile</span>(thpost, <span class="dt">prob =</span> <span class="kw">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>), <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)
-  thdiff &lt;-<span class="st"> </span>thpost <span class="op">-</span><span class="st"> </span>thpre
-  ci_diff &lt;-<span class="st"> </span><span class="kw">quantile</span>(thdiff, <span class="dt">prob =</span> <span class="kw">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>), <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)
-  estimates &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">mean</span>(thpre, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="kw">mean</span>(thpost, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), 
-                 <span class="kw">mean</span>(thdiff, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))
-  mdns &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">median</span>(thpre, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="kw">median</span>(thpost, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>),
-          <span class="kw">median</span>(thdiff, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))
+  <span class="co"># Threshold difference</span>
+  thdiff &lt;-<span class="st"> </span>thpost -<span class="st"> </span>thpre
+  hdidiff &lt;-<span class="st"> </span><span class="kw">HPDI</span>(thdiff, <span class="dt">prob =</span> <span class="fl">0.95</span>)
   
-  <span class="co"># Lapse rate estimates from parameter lambda</span>
-  lapse &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">mean</span>(lambda, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="kw">median</span>(lambda, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="kw">max</span>(lambda, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))
+  <span class="co"># Diagnostics</span>
+  mineff &lt;-<span class="st"> </span><span class="kw">min</span>(<span class="kw">summary</span>(model)$summary[<span class="dv">1</span>:<span class="dv">6</span>, <span class="dv">9</span>])  <span class="co">#Minimum n_eff </span>
+  maxR &lt;-<span class="st"> </span><span class="kw">max</span>(<span class="kw">summary</span>(model)$summary[<span class="dv">1</span>:<span class="dv">6</span>, <span class="dv">10</span>])  <span class="co">#Minimum n_eff </span>
   
-  <span class="co"># Compile output</span>
-  out &lt;-<span class="st"> </span><span class="kw">c</span>(ici, estimates, mdns, ci_pre, ci_post, ci_diff, lapse, n_eff, R_hat)
-  <span class="kw">names</span>(out) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">'ici'</span>, <span class="st">'thmean_pre'</span>, <span class="st">'thmean_post'</span>, <span class="st">'thmean_diff'</span>,
-                  <span class="st">'thmedian_pre'</span>, <span class="st">'thmedian_post'</span>, <span class="st">'thmedian_diff'</span>,
-                  <span class="st">'th95lo_pre'</span>, <span class="st">'th95hi_pre'</span>, <span class="st">'th95lo_post'</span>, <span class="st">'th95hi_post'</span>, 
-                  <span class="st">'th95lo_diff'</span>, <span class="st">'th95hi_diff'</span>, 
-                  <span class="st">'meanlapse'</span>, <span class="st">'mdnlapse'</span>, <span class="st">'maxlapse'</span>,
-                  <span class="st">'alpha_eff'</span>, <span class="st">'beta_eff'</span>, <span class="st">'gamma_eff'</span>, <span class="st">'eta_eff'</span>, <span class="st">'lambda_eff'</span>,
-                  <span class="st">'alpha_Rhat'</span>, <span class="st">'beta_Rhat'</span>, <span class="st">'gamma_Rhat'</span>, <span class="st">'eta_Rhat'</span>, <span class="st">'lambda_Rhat'</span>)
+  out &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dt">ici =</span> ici, 
+           <span class="kw">chainmode</span>(thpre), hdipre, 
+           <span class="kw">chainmode</span>(thpost), hdipost,
+           <span class="kw">chainmode</span>(thdiff), hdidiff,
+           <span class="kw">chainmode</span>(w1), <span class="kw">chainmode</span>(w2),
+           <span class="kw">chainmode</span>(lapse1), <span class="kw">chainmode</span>(lapse2),
+           mineff, maxR)
   out
 }</code></pre></div>
-<p>The function <code>firstlast()</code> was called separately for each of the 13 experimental conditions and each of teh two 10-day periods (Day 1-10 and Day 51-60). In total <span class="math inline">\(13 \times 2 = 26\)</span> times. Here is the script:</p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">conditions &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">unique</span>(g<span class="op">$</span>tau))
-prepost_data &lt;-<span class="st"> </span><span class="kw">sapply</span>(conditions, firstlast)
-prepost_stan &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="kw">t</span>(prepost_data))  <span class="co"># Transpose output before saving</span>
-<span class="kw">save</span>(prepost_stan, <span class="dt">file =</span> <span class="st">&quot;prepost_stan.RData&quot;</span>)</code></pre></div>
 <p><br></p>
-<p>The output was compiled in a file with 26 rows, one for each iteration of<code>firstlast()</code>. This data was stored in an R-object called <code>prepost_stan.RData</code>. It is available in the alexis108 package, or may be downloaded from github.com/stamnosslin/alexis108/tree/master/data</p>
+</div>
+<div id="store-data-for-figure-3" class="section level3">
+<h3>Store data for Figure 3</h3>
+<p>The output was compiled in a file with 26 rows, one for each iteration of <code>firstlast()</code>. This data was stored in an R-object called <code>prepost_stan.RData</code>. It is available in the alexis108 package, or it may be downloaded from github.com/stamnosslin/alexis108/tree/master/data</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">conditions &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">unique</span>(g$tau))
+prepost_stan &lt;-<span class="st"> </span><span class="kw">sapply</span>(conditions, firstlast)  <span class="co"># Analysis conducted here</span>
+prepost_stan &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="kw">t</span>(prepost_stan)) <span class="co"># Reformat matrix</span>
+<span class="kw">colnames</span>(prepost_stan) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">'ici'</span>, <span class="st">'thmode_pre'</span>, <span class="st">'hdi95pre_lo'</span>, <span class="st">'hdi95pre_hi'</span>,
+                                   <span class="st">'thmode_post'</span>, <span class="st">'hdi95post_lo'</span>, <span class="st">'hdi95post_hi'</span>, 
+                                   <span class="st">'thdiff'</span>, <span class="st">'hdi95diff_lo'</span>, <span class="st">'hdi95diff_hi'</span>,
+                                    <span class="st">'wmode_pre'</span>, <span class="st">'wmode_post'</span>, 
+                                    <span class="st">'lapsemdn_pre'</span>, <span class="st">'lapsemdn_post'</span>,
+                                    <span class="st">'min_neff'</span>, <span class="st">'maxR'</span>)
+
+<span class="kw">save</span>(prepost_stan, <span class="dt">file =</span> <span class="st">&quot;prepost_stan.RData&quot;</span>)</code></pre></div>
 <p><br> <br> <br> <br></p>
 </div>
 </div>
