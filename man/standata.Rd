@@ -4,7 +4,19 @@
 \name{standata}
 \alias{standata}
 \title{Processed data from experiment ALEXIS 108. For creating Figure 2.}
-\format{An object of class \code{data.frame} with 663 rows and 7 columns.}
+\format{A data frame with 663 rows and 7 columns.
+\describe{
+  \item{ici}{Inter-click interval in ms, Note: -1 is for sessions with no lead click}
+  \item{startday}{Startday, estimates based on data from this day + 9 following days}
+  \item{thmode}{Threshold estimate, i.e., stimulus level at 75 \% corrrect responses.
+                The estimate is the mode of the posterior distribution}
+  \item{thhdi95lo}{Lower 95 \% highest posterior density interval of threshold}
+  \item{thhdi95hi}{Upper 95 \% Highest posterior density interval, upper}
+  \item{spreadmode}{Spread of psychometric function. The estimate is the
+                    mode of the posterior distribution}
+  \item{lapsemode}{Lapse rate, i.e., parameter lambda, of psychometric
+                   function. The estimate is the mode of the posterior distribution}
+  }}
 \usage{
 standata
 }

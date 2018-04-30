@@ -4,7 +4,42 @@
 \name{prepost_stan}
 \alias{prepost_stan}
 \title{Processed data from experiment ALEXIS 108. For creating Figure 3.}
-\format{An object of class \code{data.frame} with 13 rows and 16 columns.}
+\format{A data frame with 13 rows and 16 colums.
+\describe{
+  \item{ici}{Inter-click interval in ms, Note: -1 is for sessions with no lead click}
+  \item{thmode_pre}{Threshold estimate first 10 days, i.e., stimulus level at
+                   75 \% corrrect responses. The estimate is the mode of the
+                   posterior distribution}
+  \item{hdi95pre_lo}{Lower 95 % Highest posterior density interval for threshold
+                     estimates from the first 10 days}
+  \item{hdi95pre_hi}{Upper 95 % Highest posterior density interval for threshold
+                     estimates from the first 10 days}
+  \item{thmode_post}{Threshold estimate last 10 days, i.e., stimulus level at
+                     75 \% corrrect responses. The estimate is the mode of the
+                     posterior distribution}
+  \item{hdi95pre_lo}{Lower 95 \% Highest posterior density interval for threshold
+                     estimates from the last 10 days}
+  \item{hdi95pre_hi}{Upper 95 \% Highest posterior density interval for threshold
+                     estimates from the last 10 days}
+  \item{thdiff}{Threshold difference last 10 - first 10 dyas. The estimate is
+                the mode of the posterior distribution of threshold differences}
+  \item{hdi95diff_lo}{Lower 95 \% Highest posterior density interval for threshold difference}
+  \item{hdi95diff_hi}{Upper 95 \% Highest posterior density interval for threshold difference}
+  \item{wmode_pre}{Spread of psychometric function. The estimate is the mode
+                   of the posterior distribution}
+  \item{wmode_post}{Lapse rate (parameter lambda) of psychometric function.
+                    The estimate is the mode of the posterior distribution}
+  \item{lapsemdn_pre}{Lapse rate (parameter lambda) of psychometric function
+                     for first 10 days. The estimate is the mode of the
+                     posterior distribution}
+  \item{lapsemdn_post}{Lapse rate (parameter lambda) of psychometric function
+                       for last 10 days. The estimate is the mode of the
+                       posterior distribution}
+  \item{min_neff}{Diagnostics: The minimum n_eff value for the estimated
+                  parameters (high values are good)}
+  \item{maxR}{Diagnostics: The maximum Rhat value for the estimated parameters
+             (values should be very close to 1)}
+  }}
 \usage{
 prepost_stan
 }
