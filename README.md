@@ -20,8 +20,8 @@ help(package = "alexis108")
 The package contains four datasets:  
 
 + **data108**,  Main data, use help(data108) to see the code book
-+ **prepost_stan**,  Data for the manuscript's Figure 2. Datafile explained in vignette *data_analys_jasael_manuscript*
-+ **standata**,  Data for the manuscript's FIgure 3 Datafile explained in vignette *data_analys_jasael_manuscript*
++ **prepost_stan**,  Data for the manuscript's Figure 2, use help(prepost_stan) to see the code book. Datafile explained in    vignette *data_analys_jasael_manuscript*
++ **standata**,  Data for the manuscript's FIgure 3, use help(standata) to see the code book. Datafile explained in vignette *data_analys_jasael_manuscript*
 + **data108extra**, Data from an additional detection experiment, not included in the manuscript, use help(data108extra) to see the code book
 
 <br>
