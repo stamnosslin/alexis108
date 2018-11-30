@@ -1,6 +1,6 @@
 # alexis108
 
-This R library contains data from an experiment (called alexis108) described in a manuscript submitted to JASA-Express Letters (2018-02-23), resubmitted (2018-04-28).
+This R library contains data from an experiment (called alexis108) described in the article Nilsson, M.E. (2018). *Learning to extract a large inter-aural level difference in lag clicks.* The Journal of the Acoustical Society of America 143, EL456 (2018); https://doi.org/10.1121/1.5041467
 
 <br>
 
